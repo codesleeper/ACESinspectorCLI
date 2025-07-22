@@ -117,6 +117,7 @@ class AnalysisChunk:
 @dataclass
 class AnalysisChunkGroup:
     """Represents a group of analysis chunks"""
+    id: int = 0
     chunks: List[AnalysisChunk] = field(default_factory=list)
 
 
@@ -1808,5 +1809,330 @@ class ACES:
             
             f.write('</Table></Worksheet>')
         
-        # Similar patterns for other error types...
-        # Qdb Errors, Invalid BaseVehicles, etc.
+        # Qdb Errors
+        if self.qdb_errors_count > 0:
+            f.write('<Worksheet ss:Name="Qdb Errors">'
+                   '<Table ss:ExpandedColumnCount="12" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Error</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Attributes</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Notes</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.individual_analysis_chunks_list:
+                if chunk.qdb_errors_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_QdbErrors{chunk.id}.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 12:
+                                        f.write('<Row>')
+                                        for field in fields[:12]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Questionable Notes
+        if self.questionable_notes_count > 0:
+            f.write('<Worksheet ss:Name="Questionable Notes">'
+                   '<Table ss:ExpandedColumnCount="12" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Error</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Attributes</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Notes</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.individual_analysis_chunks_list:
+                if chunk.questionable_notes_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_questionableNotes{chunk.id}.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 12:
+                                        f.write('<Row>')
+                                        for field in fields[:12]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Invalid BaseVehicles
+        if self.basevehicleids_errors_count > 0:
+            f.write('<Worksheet ss:Name="Invalid BaseVehicles">'
+                   '<Table ss:ExpandedColumnCount="11" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Error</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Fitment</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.individual_analysis_chunks_list:
+                if chunk.basevehicleids_errors_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_invalidBasevehicles{chunk.id}.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 11:
+                                        f.write('<Row>')
+                                        for field in fields[:11]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Invalid VCdb Codes
+        if self.vcdb_codes_errors_count > 0:
+            f.write('<Worksheet ss:Name="Invalid VCdb Codes">'
+                   '<Table ss:ExpandedColumnCount="12" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Error</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Attributes</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Notes</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.individual_analysis_chunks_list:
+                if chunk.vcdb_codes_errors_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_invalidVCdbCodes{chunk.id}.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 12:
+                                        f.write('<Row>')
+                                        for field in fields[:12]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Configuration Errors
+        if self.vcdb_configurations_errors_count > 0:
+            f.write('<Worksheet ss:Name="Configuration Errors">'
+                   '<Table ss:ExpandedColumnCount="12" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Error</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Attributes</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Notes</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.individual_analysis_chunks_list:
+                if chunk.vcdb_configurations_errors_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_configurationErrors{chunk.id}.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 12:
+                                        f.write('<Row>')
+                                        for field in fields[:12]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Quantity Outliers
+        if self.qty_outlier_count > 0:
+            f.write('<Worksheet ss:Name="Quantity Outliers">'
+                   '<Table ss:ExpandedColumnCount="11" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Warning</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Fitment</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.outlier_analysis_chunks_list:
+                if chunk.qty_outlier_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_qtyOutliers.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 11:
+                                        f.write('<Row>')
+                                        for field in fields[:11]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Part Type Disagreements
+        if self.parttype_disagreement_count > 0:
+            f.write('<Worksheet ss:Name="Part Type Disagreements">'
+                   '<Table ss:ExpandedColumnCount="11" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Warning</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Fitment</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.outlier_analysis_chunks_list:
+                if chunk.parttype_disagreement_errors_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_parttypeDisagreements.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 11:
+                                        f.write('<Row>')
+                                        for field in fields[:11]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Asset Problems
+        if self.asset_problems_count > 0:
+            f.write('<Worksheet ss:Name="Asset Problems">'
+                   '<Table ss:ExpandedColumnCount="11" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Warning</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Fitment</Data></Cell>'
+                   '</Row>')
+            
+            for chunk in self.outlier_analysis_chunks_list:
+                if chunk.asset_problems_count > 0:
+                    try:
+                        error_file = f"{chunk.cache_file}_assetProblems.txt"
+                        if os.path.exists(error_file):
+                            with open(error_file, 'r', encoding='utf-8') as ef:
+                                for line in ef:
+                                    fields = line.strip().split('\t')
+                                    if len(fields) >= 11:
+                                        f.write('<Row>')
+                                        for field in fields[:11]:
+                                            f.write(f'<Cell><Data ss:Type="String">{escape_xml(field)}</Data></Cell>')
+                                        f.write('</Row>')
+                    except:
+                        pass
+            
+            f.write('</Table></Worksheet>')
+        
+        # Fitment Logic Problems
+        if self.fitment_logic_problems_count > 0:
+            f.write('<Worksheet ss:Name="Fitment Logic Problems">'
+                   '<Table ss:ExpandedColumnCount="11" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="15">'
+                   '<Row>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Problem Group</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">App Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Base Vehicle Id</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Make</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Model</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Year</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part Type</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Position</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Quantity</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Part</Data></Cell>'
+                   '<Cell ss:StyleID="s65"><Data ss:Type="String">Fitment</Data></Cell>'
+                   '</Row>')
+            
+            for group_id, apps in self.fitment_problem_groups_app_lists.items():
+                for app in apps:
+                    f.write('<Row>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(group_id)}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(str(app.id))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(str(app.basevehicle_id))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(vcdb.nice_make_of_basevid(app.basevehicle_id))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(vcdb.nice_model_of_basevid(app.basevehicle_id))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(str(vcdb.nice_year_of_basevid(app.basevehicle_id)))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(pcdb.nice_parttype(app.parttype_id))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(pcdb.nice_position(app.position_id))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(str(app.quantity))}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(app.part)}</Data></Cell>')
+                    f.write(f'<Cell><Data ss:Type="String">{escape_xml(app.nice_full_fitment_string(vcdb, qdb))}</Data></Cell>')
+                    f.write('</Row>')
+            
+            f.write('</Table></Worksheet>')
