@@ -31,6 +31,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 
 from autocare import ACES, VCdb, PCdb, Qdb
 
@@ -276,40 +277,226 @@ Return codes:
             traceback.print_exc()
         return 6
 
-    # Perform analysis
+    # Perform comprehensive analysis
     try:
         if verbose:
             print("performing analysis")
-            
-        # This would involve calling the various analysis methods
-        # For now, we'll create a basic analysis structure
-        # The full analysis implementation would be quite extensive
         
-        # Create assessment file
+        # Set analysis running flag
+        aces.analysis_running = True
+        
+        # Set analysis parameters
+        aces.qty_outlier_threshold = 1
+        aces.qty_outlier_sample_size = 1000
+        
+        # Establish fitment tree roots
+        aces.establish_fitment_tree_roots(use_assets_as_fitment)
+        
+        # Clear previous analysis results
+        aces.clear_analysis_results()
+        
+        # Divide apps into analysis chunks for parallel processing
+        number_of_sections = thread_count
+        if (number_of_sections * 5) > len(aces.apps):
+            number_of_sections = 1  # Ensure at least 5 apps per section
+        
+        section_size = len(aces.apps) // number_of_sections if number_of_sections > 0 else len(aces.apps)
+        
+        # Create individual analysis chunks
+        chunk_id = 1
+        current_chunk = None
+        
+        for i, app in enumerate(aces.apps):
+            if not current_chunk or len(current_chunk.apps_list) >= section_size:
+                from autocare import AnalysisChunk
+                current_chunk = AnalysisChunk()
+                current_chunk.id = chunk_id
+                current_chunk.cache_file = os.path.join(cache_path, "AiFragments", aces.file_md5_hash)
+                current_chunk.apps_list = []
+                aces.individual_analysis_chunks_list.append(current_chunk)
+                
+                # Add cache files to deletion list
+                cache_files_to_delete_on_exit.extend([
+                    f"{current_chunk.cache_file}_parttypePositionErrors{chunk_id}.txt",
+                    f"{current_chunk.cache_file}_QdbErrors{chunk_id}.txt",
+                    f"{current_chunk.cache_file}_questionableNotes{chunk_id}.txt",
+                    f"{current_chunk.cache_file}_invalidBasevehicles{chunk_id}.txt",
+                    f"{current_chunk.cache_file}_invalidVCdbCodes{chunk_id}.txt",
+                    f"{current_chunk.cache_file}_configurationErrors{chunk_id}.txt"
+                ])
+                chunk_id += 1
+            
+            current_chunk.apps_list.append(app)
+        
+        # Run individual app analysis in parallel
+        if verbose:
+            print("analyzing individual applications...")
+        
+        with ThreadPoolExecutor(max_workers=thread_count) as executor:
+            # Individual app errors analysis
+            individual_futures = []
+            for chunk in aces.individual_analysis_chunks_list:
+                future = executor.submit(aces.find_individual_app_errors, chunk, vcdb, pcdb, qdb)
+                individual_futures.append(future)
+            
+            # Outlier analysis (single threaded)
+            from autocare import AnalysisChunk
+            outlier_chunk = AnalysisChunk()
+            outlier_chunk.cache_file = os.path.join(cache_path, "AiFragments", aces.file_md5_hash)
+            outlier_chunk.apps_list = aces.apps
+            aces.outlier_analysis_chunks_list.append(outlier_chunk)
+            cache_files_to_delete_on_exit.extend([
+                f"{outlier_chunk.cache_file}_qtyOutliers.txt",
+                f"{outlier_chunk.cache_file}_parttypeDisagreements.txt",
+                f"{outlier_chunk.cache_file}_assetProblems.txt"
+            ])
+            
+            outlier_future = executor.submit(aces.find_individual_app_outliers, outlier_chunk, vcdb, pcdb, qdb)
+            
+            # Fitment logic analysis
+            if verbose:
+                print("analyzing fitment logic...")
+            
+            # Create fitment analysis chunk groups
+            fitment_sections = thread_count
+            if (fitment_sections * 5) > len(aces.fitment_analysis_chunks_list):
+                fitment_sections = 1
+            
+            fitment_section_size = len(aces.fitment_analysis_chunks_list) // fitment_sections if fitment_sections > 0 else len(aces.fitment_analysis_chunks_list)
+            
+            from autocare import AnalysisChunkGroup
+            chunk_group_id = 1
+            current_group = None
+            
+            for chunk in aces.fitment_analysis_chunks_list:
+                if not current_group or len(current_group.chunks) >= fitment_section_size:
+                    current_group = AnalysisChunkGroup()
+                    current_group.id = chunk_group_id
+                    current_group.chunks = []
+                    aces.fitment_analysis_chunks_groups.append(current_group)
+                    chunk_group_id += 1
+                
+                current_group.chunks.append(chunk)
+            
+            # Submit fitment logic analysis tasks
+            fitment_futures = []
+            for chunk_group in aces.fitment_analysis_chunks_groups:
+                future = executor.submit(
+                    aces.find_fitment_logic_problems,
+                    chunk_group, vcdb, pcdb, qdb,
+                    os.path.join(cache_path, "ACESinspector-fitment_permutations.txt"),
+                    tree_config_limit, cache_path,
+                    concern_for_disparate, respect_qdb_type,
+                    True, thread_count, verbose
+                )
+                fitment_futures.append(future)
+            
+            # Wait for all analyses to complete
+            for future in individual_futures + [outlier_future] + fitment_futures:
+                future.result()  # This will raise any exceptions that occurred
+        
+        if verbose:
+            print("  analysis complete")
+        
+        # Compile total error and warning counts
+        aces.parttype_position_errors_count = 0
+        aces.qdb_errors_count = 0
+        aces.questionable_notes_count = 0
+        aces.basevehicleids_errors_count = 0
+        aces.vcdb_codes_errors_count = 0
+        aces.vcdb_configurations_errors_count = 0
+        aces.parttype_disagreement_count = 0
+        aces.qty_outlier_count = 0
+        aces.asset_problems_count = 0
+        
+        # Sum up individual analysis results
+        for chunk in aces.individual_analysis_chunks_list:
+            aces.parttype_position_errors_count += chunk.parttype_position_errors_count
+            aces.qdb_errors_count += chunk.qdb_errors_count
+            aces.questionable_notes_count += chunk.questionable_notes_count
+            aces.basevehicleids_errors_count += chunk.basevehicleids_errors_count
+            aces.vcdb_codes_errors_count += chunk.vcdb_codes_errors_count
+            aces.vcdb_configurations_errors_count += chunk.vcdb_configurations_errors_count
+        
+        # Sum up outlier analysis results
+        for chunk in aces.outlier_analysis_chunks_list:
+            aces.parttype_disagreement_count += chunk.parttype_disagreement_errors_count
+            aces.qty_outlier_count += chunk.qty_outlier_count
+            aces.asset_problems_count += chunk.asset_problems_count
+        
+        # Sum up fitment logic problems
+        aces.fitment_logic_problems_count = 0
+        problem_group_number = 0
+        
+        for chunk_group in aces.fitment_analysis_chunks_groups:
+            for chunk in chunk_group.chunks:
+                if len(chunk.problem_apps_list) > 0:
+                    aces.fitment_logic_problems_count += len(chunk.problem_apps_list)
+                    problem_group_number += 1
+                    
+                    if report_all_apps_in_problem_group:
+                        aces.fitment_problem_groups_app_lists[str(problem_group_number)] = chunk.apps_list
+                    else:
+                        aces.fitment_problem_groups_app_lists[str(problem_group_number)] = chunk.problem_apps_list
+                    
+                    aces.fitment_problem_groups_best_permutations[str(problem_group_number)] = chunk.lowest_badness_permutation
+        
+        # Calculate total errors and problems
+        total_errors = (aces.basevehicleids_errors_count + aces.vcdb_codes_errors_count + 
+                       aces.vcdb_configurations_errors_count + aces.qdb_errors_count + 
+                       aces.parttype_position_errors_count)
+        
+        if verbose:
+            print(f"{total_errors} errors")
+        
+        # Build problems summary
+        problems_list = []
+        if aces.fitment_logic_problems_count > 0:
+            problems_list.append(f"{aces.fitment_logic_problems_count} logic flaws")
+        if aces.qty_outlier_count > 0:
+            problems_list.append(f"{aces.qty_outlier_count} qty outliers")
+        if aces.parttype_disagreement_count > 0:
+            problems_list.append(f"{aces.parttype_disagreement_count} type disagreements")
+        if aces.asset_problems_count > 0:
+            problems_list.append(f"{aces.asset_problems_count} asset problems")
+        
+        macro_problems_description = "0 problems" if not problems_list else ", ".join(problems_list)
+        
+        if verbose:
+            print(macro_problems_description)
+            print("writing assessment file")
+        
+        # Create comprehensive assessment file
         assessment_filename = f"{Path(input_file).stem}_{aces.file_md5_hash}_assessment.xml"
         assessment_path = os.path.join(assessments_path, assessment_filename)
         
-        # Generate Excel-format XML output (placeholder for now)
-        with open(assessment_path, 'w', encoding='utf-8') as f:
-            f.write('<?xml version="1.0"?>\n')
-            f.write('<?mso-application progid="Excel.Sheet"?>\n')
-            f.write('<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n')
-            f.write(' xmlns:o="urn:schemas-microsoft-com:office:office"\n')
-            f.write(' xmlns:x="urn:schemas-microsoft-com:office:excel"\n')
-            f.write(' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"\n')
-            f.write(' xmlns:html="http://www.w3.org/TR/REC-html40">\n')
+        # Calculate base vehicle coverage
+        basevehicle_hit_count = 0
+        modern_basevehicle_hit_count = 0
+        modern_basevehicles_available = 0
+        
+        for base_vid, base_vehicle in vcdb.vcdb_basevehicle_dict.items():
+            if base_vehicle.year >= 1990:
+                modern_basevehicles_available += 1
             
-            # Add basic summary worksheet
-            f.write('<Worksheet ss:Name="Summary">\n')
-            f.write('<Table>\n')
-            f.write('<Row><Cell><Data ss:Type="String">ACES Analysis Summary</Data></Cell></Row>\n')
-            f.write(f'<Row><Cell><Data ss:Type="String">Input File:</Data></Cell><Cell><Data ss:Type="String">{escape_xml_special_chars(input_file)}</Data></Cell></Row>\n')
-            f.write(f'<Row><Cell><Data ss:Type="String">Applications Count:</Data></Cell><Cell><Data ss:Type="Number">{len(aces.apps)}</Data></Cell></Row>\n')
-            f.write(f'<Row><Cell><Data ss:Type="String">Analysis Date:</Data></Cell><Cell><Data ss:Type="String">{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</Data></Cell></Row>\n')
-            f.write('</Table>\n')
-            f.write('</Worksheet>\n')
-            f.write('</Workbook>\n')
-
+            if base_vid in aces.basevid_occurrences:
+                basevehicle_hit_count += 1
+                if base_vehicle.year >= 1990:
+                    modern_basevehicle_hit_count += 1
+        
+        total_basevehicles = len(vcdb.vcdb_basevehicle_dict)
+        all_coverage = round((basevehicle_hit_count * 100) / (total_basevehicles + 1), 1) if total_basevehicles > 0 else 0
+        modern_coverage = round((modern_basevehicle_hit_count * 100) / (modern_basevehicles_available + 1), 1) if modern_basevehicles_available > 0 else 0
+        
+        # Generate comprehensive Excel-format XML assessment file
+        aces.generate_assessment_file(
+            assessment_path, vcdb, pcdb, qdb, 
+            all_coverage, modern_coverage,
+            basevehicle_hit_count, total_basevehicles,
+            modern_basevehicle_hit_count, modern_basevehicles_available,
+            starting_datetime, cache_path
+        )
+        
         if verbose:
             print(f"assessment file created: {assessment_filename}")
 
