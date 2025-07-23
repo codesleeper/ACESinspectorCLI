@@ -34,6 +34,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 from autocare import ACES, VCdb, PCdb, Qdb
+from database_adapter import DatabaseConfig
 
 
 def escape_xml_special_chars(input_string: str) -> str:
@@ -55,6 +56,41 @@ def get_version():
     return "1.0.0.21"
 
 
+def is_database_connection_string(path: str) -> bool:
+    """Check if path is a database connection string rather than a file path"""
+    path_lower = path.lower()
+    return (
+        path_lower.startswith(('mysql://', 'mysql+pymysql://')) or
+        'host=' in path_lower or
+        ('driver=' in path_lower and 'dbq=' in path_lower)
+    )
+
+
+def validate_database_source(db_path: str, db_name: str, verbose: bool = False) -> int:
+    """Validate database source (file or connection string). Returns 0 on success, 4 on failure."""
+    try:
+        if is_database_connection_string(db_path):
+            # This is a connection string - try to parse it
+            config = DatabaseConfig.from_connection_string(db_path)
+            if config.db_type == "unknown":
+                print(f"{db_name} connection string format not recognized: {db_path}")
+                return 4
+            if verbose:
+                print(f"{db_name} using {config.db_type} database connection")
+            return 0
+        else:
+            # This should be a file path
+            if not os.path.exists(db_path):
+                print(f"{db_name} database file ({db_path}) does not exist")
+                return 4
+            if verbose:
+                print(f"{db_name} using Access database file")
+            return 0
+    except Exception as ex:
+        print(f"Error validating {db_name} database source: {ex}")
+        return 4
+
+
 def main():
     """Main entry point"""
     starting_datetime = datetime.now()
@@ -64,7 +100,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Example usage:
-  python aces_inspector.py -i "ACES.xml" -o ./output -t ./temp -v vcdb.accdb -p pcdb.accdb -q qdb.accdb -l ./logs --verbose
+  Access databases:
+    python aces_inspector.py -i "ACES.xml" -o ./output -t ./temp -v vcdb.accdb -p pcdb.accdb -q qdb.accdb -l ./logs --verbose
+  
+  MySQL databases:
+    python aces_inspector.py -i "ACES.xml" -o ./output -t ./temp -v "mysql://user:pass@localhost/vcdb" -p "mysql://user:pass@localhost/pcdb" -q "mysql://user:pass@localhost/qdb" --verbose
 
 Return codes:
   0 - Successful analysis
@@ -80,9 +120,9 @@ Return codes:
     parser.add_argument('-i', '--input', required=True, help='Input ACES XML file')
     parser.add_argument('-o', '--output', required=True, help='Output directory for assessment files')
     parser.add_argument('-t', '--temp', required=True, help='Temporary directory')
-    parser.add_argument('-v', '--vcdb', required=True, help='VCdb Access database file')
-    parser.add_argument('-p', '--pcdb', required=True, help='PCdb Access database file')
-    parser.add_argument('-q', '--qdb', required=True, help='Qdb Access database file')
+    parser.add_argument('-v', '--vcdb', required=True, help='VCdb database (Access file path or MySQL connection string)')
+    parser.add_argument('-p', '--pcdb', required=True, help='PCdb database (Access file path or MySQL connection string)')
+    parser.add_argument('-q', '--qdb', required=True, help='Qdb database (Access file path or MySQL connection string)')
     parser.add_argument('-l', '--logs', help='Logs directory')
     parser.add_argument('--verbose', action='store_true', help='Verbose console output')
     parser.add_argument('--delete', action='store_true', help='Delete input ACES file upon successful analysis')
@@ -90,7 +130,11 @@ Return codes:
     
     if len(sys.argv) == 1:
         print(f"Version: {get_version()}")
-        print("usage: python aces_inspector.py -i <ACES xml file> -v <VCdb access file> -p <PCdb access file> -q <Qdb access file> -o <assessment file> -t <temp directory> [-l <logs directory>]")
+        print("usage: python aces_inspector.py -i <ACES xml file> -v <VCdb database> -p <PCdb database> -q <Qdb database> -o <assessment file> -t <temp directory> [-l <logs directory>]")
+        print("\nDatabase options:")
+        print("  Access files: path/to/database.accdb")
+        print("  MySQL: mysql://user:pass@host:port/dbname")
+        print("  MySQL params: host=localhost;user=user;password=pass;database=dbname")
         print("\noptional switches")
         print("  --verbose    verbose console output")
         print("  --delete     delete input ACES file upon successful analysis")
@@ -131,18 +175,18 @@ Return codes:
         print(f"temp directory ({cache_path}) does not exist")
         return 3  # failure - local filesystem problems writing output
 
-    # Validate database files exist
-    if not os.path.exists(vcdb_file):
-        print(f"VCdb Access database file ({vcdb_file}) does not exist")
-        return 4  # failure - reference database not found
+    # Validate database sources (files or connection strings)
+    result = validate_database_source(vcdb_file, "VCdb", verbose)
+    if result != 0:
+        return result
 
-    if not os.path.exists(pcdb_file):
-        print(f"PCdb Access database file ({pcdb_file}) does not exist")
-        return 4  # failure - reference database not found
+    result = validate_database_source(pcdb_file, "PCdb", verbose)
+    if result != 0:
+        return result
 
-    if not os.path.exists(qdb_file):
-        print(f"Qdb Access database file ({qdb_file}) does not exist")
-        return 4  # failure - reference database not found
+    result = validate_database_source(qdb_file, "Qdb", verbose)
+    if result != 0:
+        return result
 
     if verbose:
         print(f"version {get_version()}")

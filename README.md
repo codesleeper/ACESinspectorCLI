@@ -9,7 +9,10 @@ This is a complete Python conversion of the original C# ACES Inspector CLI appli
 ## Features
 
 - **ACES XML Import & Validation**: Parse and validate ACES XML files against multiple schema versions (1.08, 2.0, 3.0, 3.0.1, 3.1, 3.2, 4.2)
-- **Database Integration**: Connect to and import data from VCdb (Vehicle Configuration Database), PCdb (Part Configuration Database), and Qdb (Qualifier Database) Microsoft Access files
+- **Multiple Database Support**: 
+  - **Microsoft Access**: Connect to VCdb, PCdb, and Qdb Access database files (.accdb/.mdb)
+  - **MySQL**: Connect to MySQL databases with flexible connection string formats
+  - **Mixed Environments**: Use different database types for different data sources
 - **Comprehensive Analysis**: 
   - Individual application error detection
   - Quantity outlier identification  
@@ -24,8 +27,14 @@ This is a complete Python conversion of the original C# ACES Inspector CLI appli
 ## Requirements
 
 - Python 3.8+
-- Microsoft Access ODBC Driver (for database connectivity)
-- Required Python packages (see requirements.txt)
+- **For Access databases**: Microsoft Access ODBC Driver
+- **For MySQL databases**: MySQL server and client libraries
+- Required Python packages (see requirements.txt):
+  - `lxml` - XML processing
+  - `pyodbc` - Access database connectivity
+  - `PyMySQL` - MySQL database connectivity
+  - `mysql-connector-python` - Alternative MySQL connector
+  - `xlsxwriter`, `openpyxl` - Excel report generation
 
 ## Installation
 
@@ -40,29 +49,48 @@ cd aces-inspector-python
 pip install -r requirements.txt
 ```
 
-3. Ensure Microsoft Access ODBC Driver is installed on your system for database connectivity.
+3. Install database drivers as needed:
+   - **For Access databases**: Microsoft Access ODBC Driver
+   - **For MySQL databases**: MySQL client libraries (usually included with PyMySQL/mysql-connector-python)
 
 ## Usage
 
 ### Basic Usage
 
+#### Access Databases
 ```bash
 python aces_inspector.py -i "input.xml" -o ./output -t ./temp -v vcdb.accdb -p pcdb.accdb -q qdb.accdb
+```
+
+#### MySQL Databases
+```bash
+python aces_inspector.py -i "input.xml" -o ./output -t ./temp \
+  -v "mysql://user:pass@localhost:3306/vcdb" \
+  -p "mysql://user:pass@localhost:3306/pcdb" \
+  -q "mysql://user:pass@localhost:3306/qdb"
+```
+
+#### Mixed Database Types
+```bash
+python aces_inspector.py -i "input.xml" -o ./output -t ./temp \
+  -v "mysql://user:pass@localhost:3306/vcdb" \
+  -p "pcdb.accdb" \
+  -q "host=localhost;database=qdb;user=dbuser;password=dbpass"
 ```
 
 ### Full Command Line Options
 
 ```bash
-python aces_inspector.py -i <ACES_XML_FILE> -o <OUTPUT_DIR> -t <TEMP_DIR> -v <VCDB_FILE> -p <PCDB_FILE> -q <QDB_FILE> [-l <LOGS_DIR>] [--verbose] [--delete]
+python aces_inspector.py -i <ACES_XML_FILE> -o <OUTPUT_DIR> -t <TEMP_DIR> -v <VCDB_SOURCE> -p <PCDB_SOURCE> -q <QDB_SOURCE> [-l <LOGS_DIR>] [--verbose] [--delete]
 ```
 
 #### Required Arguments
 - `-i, --input`: Input ACES XML file path
 - `-o, --output`: Output directory for assessment files
 - `-t, --temp`: Temporary directory for processing
-- `-v, --vcdb`: VCdb Access database file
-- `-p, --pcdb`: PCdb Access database file  
-- `-q, --qdb`: Qdb Access database file
+- `-v, --vcdb`: VCdb database (Access file path or MySQL connection string)
+- `-p, --pcdb`: PCdb database (Access file path or MySQL connection string)  
+- `-q, --qdb`: Qdb database (Access file path or MySQL connection string)
 
 #### Optional Arguments
 - `-l, --logs`: Logs directory (optional)
@@ -70,8 +98,20 @@ python aces_inspector.py -i <ACES_XML_FILE> -o <OUTPUT_DIR> -t <TEMP_DIR> -v <VC
 - `--delete`: Delete input ACES file upon successful analysis
 - `--version`: Show version information
 
-### Example
+### Database Connection Formats
 
+#### Access Database Files
+- **File Path**: `/path/to/database.accdb` or `C:\path\to\database.accdb`
+- **ODBC String**: `DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=/path/to/database.accdb;`
+
+#### MySQL Database Connections
+- **URL Format**: `mysql://username:password@hostname:port/database_name`
+- **PyMySQL Format**: `mysql+pymysql://username:password@hostname:port/database_name`
+- **Parameter Format**: `host=hostname;port=3306;database=dbname;user=username;password=password`
+
+### Examples
+
+#### Traditional Access Databases
 ```bash
 python aces_inspector.py \
   -i "ACES_file_with_spaces.xml" \
@@ -83,6 +123,31 @@ python aces_inspector.py \
   -q Qdb20230126.accdb \
   --verbose \
   --delete
+```
+
+#### MySQL Production Environment
+```bash
+python aces_inspector.py \
+  -i "production_aces.xml" \
+  -o ./reports \
+  -t ./temp \
+  -l ./logs \
+  -v "mysql://aces_user:secure_password@db.company.com:3306/vcdb_prod" \
+  -p "mysql://aces_user:secure_password@db.company.com:3306/pcdb_prod" \
+  -q "mysql://aces_user:secure_password@db.company.com:3306/qdb_prod" \
+  --verbose
+```
+
+#### Mixed Environment (Development)
+```bash
+python aces_inspector.py \
+  -i "test_aces.xml" \
+  -o ./dev_output \
+  -t ./dev_temp \
+  -v "mysql://dev_user:dev_pass@localhost:3306/vcdb_dev" \
+  -p "dev_databases/PCdb20230126.accdb" \
+  -q "host=localhost;database=qdb_dev;user=dev_user;password=dev_pass" \
+  --verbose
 ```
 
 ## Return Codes
@@ -156,19 +221,33 @@ aces-inspector-python/
 
 ## Database Requirements
 
-The tool requires three Microsoft Access database files:
+The tool requires three databases containing automotive industry standard data:
 
 1. **VCdb (Vehicle Configuration Database)**: Contains vehicle configuration data
-2. **PCdb (Part Configuration Database)**: Contains part type and position data
+2. **PCdb (Part Configuration Database)**: Contains part type and position data  
 3. **Qdb (Qualifier Database)**: Contains qualifier definitions
+
+### Database Sources
+- **Access Format**: Original Microsoft Access files (.accdb/.mdb) from Auto Care Association
+- **MySQL Format**: Converted/migrated MySQL databases with equivalent schema and data
+- **Mixed**: Can use different database types for different data sources as needed
 
 These databases must be obtained separately from Auto Care Association or other authorized sources.
 
+### Database Schema Compatibility
+The tool expects standard Auto Care Association database schemas. When using MySQL:
+- Table and column names should match the original Access database structure
+- Data types should be compatible (text, integers, dates)
+- For case-sensitive MySQL setups, table/column names may need adjustment
+- Version information should be available in a `Version` table
+
 ## Limitations
 
-- Requires Microsoft Access ODBC driver for database connectivity
+- **Access databases**: Requires Microsoft Access ODBC driver
+- **MySQL databases**: Requires MySQL server access and appropriate credentials
 - Large ACES files may require significant memory and processing time
 - Complex fitment logic analysis may be computationally intensive
+- Network latency may affect performance when using remote MySQL databases
 
 ## Contributing
 

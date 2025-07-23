@@ -23,6 +23,7 @@ import itertools
 from concurrent.futures import ThreadPoolExecutor
 import tempfile
 import traceback
+from database_adapter import create_database_adapter, DatabaseAdapter, DatabaseQueryBuilder
 
 
 @dataclass
@@ -290,6 +291,7 @@ class VCdb:
     def __init__(self):
         self.import_vcdb_config_data = False
         self.connection_oledb = None
+        self.db_adapter: Optional[DatabaseAdapter] = None
         self.vcdb_versions_on_server_list: List[str] = []
         self.import_success = False
         self.import_exception_message = ""
@@ -346,12 +348,20 @@ class VCdb:
         result = ""
         self.file_path = path
         try:
+            # Disconnect existing connections
             if self.connection_oledb:
                 self.connection_oledb.close()
+            if self.db_adapter:
+                self.db_adapter.disconnect()
             
-            # Use pyodbc to connect to Access database
-            connection_string = f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};"
-            self.connection_oledb = pyodbc.connect(connection_string)
+            # Create new database adapter
+            self.db_adapter = create_database_adapter(path)
+            result = self.db_adapter.connect()
+            
+            # Maintain backward compatibility with existing code
+            if not result:  # Success
+                self.connection_oledb = self.db_adapter.connection
+            
         except Exception as ex:
             result = str(ex)
         return result
@@ -359,6 +369,9 @@ class VCdb:
     def disconnect(self):
         """Disconnect from database"""
         self.file_path = ""
+        if self.db_adapter:
+            self.db_adapter.disconnect()
+            self.db_adapter = None
         if self.connection_oledb:
             self.connection_oledb.close()
             self.connection_oledb = None
@@ -431,10 +444,24 @@ class VCdb:
         """Import data from OLEDB database"""
         try:
             self.import_success = False
-            cursor = self.connection_oledb.cursor()
             
-            # Import version
-            cursor.execute("SELECT VersionDate FROM Version")
+            # Use database adapter if available, otherwise fall back to direct connection
+            if self.db_adapter and self.db_adapter.is_connected():
+                cursor = self.db_adapter.get_cursor()
+            else:
+                cursor = self.connection_oledb.cursor()
+            
+            # Import version - use database-agnostic query
+            if self.db_adapter:
+                db_type = self.db_adapter.config.db_type
+                version_query = DatabaseQueryBuilder.get_version_query(db_type)
+                if db_type == "mysql":
+                    cursor.execute("SELECT version_date FROM version LIMIT 1")
+                else:
+                    cursor.execute("SELECT VersionDate FROM Version")
+            else:
+                cursor.execute("SELECT VersionDate FROM Version")
+            
             row = cursor.fetchone()
             if row:
                 self.version = str(row[0])
@@ -485,6 +512,7 @@ class PCdb:
     
     def __init__(self):
         self.connection_oledb = None
+        self.db_adapter: Optional[DatabaseAdapter] = None
         self.pcdb_versions_on_server_list: List[str] = []
         self.import_success = False
         self.import_exception_message = ""
@@ -499,10 +527,18 @@ class PCdb:
         """Import data from OLEDB database"""
         try:
             self.import_success = False
-            cursor = self.connection_oledb.cursor()
             
-            # Import version
-            cursor.execute("SELECT VersionDate FROM Version")
+            # Use database adapter if available, otherwise fall back to direct connection
+            if self.db_adapter and self.db_adapter.is_connected():
+                cursor = self.db_adapter.get_cursor()
+            else:
+                cursor = self.connection_oledb.cursor()
+            
+            # Import version - use database-agnostic query
+            if self.db_adapter and self.db_adapter.config.db_type == "mysql":
+                cursor.execute("SELECT version_date FROM version LIMIT 1")
+            else:
+                cursor.execute("SELECT VersionDate FROM Version")
             row = cursor.fetchone()
             if row:
                 self.version = str(row[0])
@@ -512,8 +548,11 @@ class PCdb:
             for row in cursor.fetchall():
                 self.parttypes[row[0]] = row[1]
             
-            # Import positions
-            cursor.execute("SELECT PositionID, [Position] FROM Positions")
+            # Import positions - handle column name quoting for different databases
+            if self.db_adapter and self.db_adapter.config.db_type == "mysql":
+                cursor.execute("SELECT PositionID, `Position` FROM Positions")
+            else:
+                cursor.execute("SELECT PositionID, [Position] FROM Positions")
             for row in cursor.fetchall():
                 self.positions[row[0]] = row[1]
             
@@ -573,6 +612,7 @@ class Qdb:
     
     def __init__(self):
         self.connection_oledb = None
+        self.db_adapter: Optional[DatabaseAdapter] = None
         self.qdb_versions_on_server_list: List[str] = []
         self.file_path = ""
         self.version = ""

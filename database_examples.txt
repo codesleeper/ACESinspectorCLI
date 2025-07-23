@@ -1,0 +1,109 @@
+# ACES Inspector Database Configuration Examples
+# Copy and modify these examples for your environment
+
+# Local Access database files in data directory
+# Configuration: development_access
+python aces_inspector.py \
+  -i input.xml \
+  -o ./output \
+  -t ./temp \
+  -v "data/VCdb20230126.accdb" \
+  -p "data/PCdb20230126.accdb" \
+  -q "data/Qdb20230126.accdb" \
+  --verbose
+
+# Production MySQL databases on localhost
+# Configuration: production_mysql
+python aces_inspector.py \
+  -i input.xml \
+  -o ./output \
+  -t ./temp \
+  -v "mysql://aces_user:password@localhost:3306/vcdb_prod" \
+  -p "mysql://aces_user:password@localhost:3306/pcdb_prod" \
+  -q "mysql://aces_user:password@localhost:3306/qdb_prod" \
+  --verbose
+
+# Remote MySQL databases
+# Configuration: remote_mysql
+python aces_inspector.py \
+  -i input.xml \
+  -o ./output \
+  -t ./temp \
+  -v "mysql://aces_user:password@db.company.com:3306/vcdb" \
+  -p "mysql://aces_user:password@db.company.com:3306/pcdb" \
+  -q "mysql://aces_user:password@db.company.com:3306/qdb" \
+  --verbose
+
+# Mixed database types - MySQL VCdb, Access PCdb, MySQL Qdb with parameters
+# Configuration: mixed_environment
+python aces_inspector.py \
+  -i input.xml \
+  -o ./output \
+  -t ./temp \
+  -v "mysql://aces_user:password@localhost:3306/vcdb" \
+  -p "data/PCdb20230126.accdb" \
+  -q "host=localhost;database=qdb;user=aces_user;password=password" \
+  --verbose
+
+# Database Connection String Formats:
+
+# Access Database:
+#   File path: /path/to/database.accdb
+#   ODBC: DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=/path/to/database.accdb;
+
+# MySQL Database:
+#   URL format: mysql://username:password@hostname:port/database_name
+#   PyMySQL format: mysql+pymysql://username:password@hostname:port/database_name
+#   Parameter format: host=hostname;port=3306;database=dbname;user=username;password=password
+
+# Production Environment Examples:
+
+# High-performance MySQL cluster setup
+python aces_inspector.py \
+  -i production_aces.xml \
+  -o ./reports \
+  -t ./temp \
+  -v "mysql://aces_ro:readonly_pass@db-read.company.com:3306/vcdb_prod" \
+  -p "mysql://aces_ro:readonly_pass@db-read.company.com:3306/pcdb_prod" \
+  -q "mysql://aces_ro:readonly_pass@db-read.company.com:3306/qdb_prod" \
+  --verbose
+
+# Development environment with local MySQL
+python aces_inspector.py \
+  -i dev_test.xml \
+  -o ./dev_output \
+  -t ./dev_temp \
+  -v "mysql://dev_user:dev_pass@localhost:3306/vcdb_dev" \
+  -p "mysql://dev_user:dev_pass@localhost:3306/pcdb_dev" \
+  -q "mysql://dev_user:dev_pass@localhost:3306/qdb_dev" \
+  --verbose
+
+# Testing environment with parameter-style connections
+python aces_inspector.py \
+  -i test_aces.xml \
+  -o ./test_output \
+  -t ./test_temp \
+  -v "host=test-db.company.com;port=3306;database=vcdb_test;user=test_user;password=test_pass" \
+  -p "host=test-db.company.com;port=3306;database=pcdb_test;user=test_user;password=test_pass" \
+  -q "host=test-db.company.com;port=3306;database=qdb_test;user=test_user;password=test_pass" \
+  --verbose
+
+# Security Notes:
+# - Never commit passwords to version control
+# - Use environment variables for sensitive credentials
+# - Consider using configuration files with restricted permissions
+# - Use SSL connections for remote MySQL databases
+# - Implement proper database user permissions (read-only for analysis)
+
+# Environment Variable Examples:
+# export MYSQL_HOST=db.company.com
+# export MYSQL_USER=aces_user
+# export MYSQL_PASSWORD=secure_password
+# export VCDB_NAME=vcdb_prod
+# export PCDB_NAME=pcdb_prod
+# export QDB_NAME=qdb_prod
+#
+# python aces_inspector.py \
+#   -v "mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:3306/${VCDB_NAME}" \
+#   -p "mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:3306/${PCDB_NAME}" \
+#   -q "mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:3306/${QDB_NAME}"
